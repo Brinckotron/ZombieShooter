@@ -31,3 +31,21 @@ Useful Gradle tasks and flags:
 
 Note that most tasks that are not specific to a single project can be run with `name:` prefix, where the `name` should be replaced with the ID of a specific project.
 For example, `core:clean` removes `build` folder only from the `core` project.
+
+
+GAME DESIGN doc
+
+Left / Right DESIGN
+personnage au milieu, défend la base
+zombies arrivent de la gauche et de la droite
+visée 360
+
+base = Tour, une au début, peut etre plusieurs dans les levels plus tard
+tour prends dmg avant player. quand tour petée, player au sol
+zombies droppent powerup des fois
+Power ups?
+Heal
+Multi bullet
+Rapid Fire
+
+Score = 1 pt par zombies
