@@ -24,8 +24,8 @@ public class Main implements ApplicationListener {
     Texture zombieTexture;
     Texture bulletTexture;
     Texture aimTexture;
-    Texture tower;
-    Texture bullet;
+    Texture gunTexture;
+    Texture towerTexture;
     Sound gunSound;
     Sound zombieSound;
     Sound zombieDeathSound;
@@ -37,14 +37,22 @@ public class Main implements ApplicationListener {
     SpriteBatch spriteBatch;
     FitViewport viewport;
 
-    Sprite heroSprite;
+    Hero hero;
 
-    Vector2 touchPos;
+    Vector2 mousePos;
 
+    Sprite gunSprite;
     Array<Sprite> zombieSprites;
-    Array<Sprite> bulletSprites;
 
     float zombieSpawnTimer;
+    float bulletSpeed = 100f;
+    float heroSpeed = 50f;
+    int heroHealth = 100;
+    float pistolReloadTime = 0.75f;
+    float machineGunReloadTime = 0.25f;
+    float shotgunReloadTime = 1f;
+    float timerReload;
+    float shotgunSpread = 10f;
 
     Rectangle heroRectangle;
     Rectangle zombieRectangle;
@@ -58,6 +66,7 @@ public class Main implements ApplicationListener {
         zombieTexture = new Texture("Zombie.png");
         bulletTexture = new Texture("Bullet.png");
         aimTexture = new Texture("Reticle.png");
+        gunTexture = new Texture("Gun.png");
 
         //zombieSound = Gdx.audio.newSound(Gdx.files.internal("drop.mp3"));
         //music = Gdx.audio.newMusic(Gdx.files.internal("music.mp3"));
@@ -65,17 +74,21 @@ public class Main implements ApplicationListener {
         spriteBatch = new SpriteBatch();
         viewport = new FitViewport(896, 512);
 
-        heroSprite = new Sprite(heroTexture);
-        heroSprite.setSize(25, 25);
+        hero = new Hero(viewport.getWorldWidth()/2, viewport.getWorldHeight()/2, new Sprite(heroTexture), heroHealth, heroSpeed, Hero.gunType.pistol );
+        hero.sprite.setSize(25, 25);
+        gunSprite = new Sprite(gunTexture);
 
-        touchPos = new Vector2();
+
+        timerReload = 0f;
+
+        mousePos = new Vector2();
 
         zombieSprites = new Array<>();
-        bulletSprites = new Array<>();
         bullets = new Array<>();
 
         heroRectangle = new Rectangle();
-        //zombieRectangles = new Array<>();
+        bulletRectangle = new Rectangle();
+        zombieRectangle = new Rectangle();
         gameWorld = new Rectangle();
         spawnZombie();
 
@@ -98,67 +111,92 @@ public class Main implements ApplicationListener {
 
 
     public void input() {
-        float speed = 30f;
         float delta = Gdx.graphics.getDeltaTime();
         float verticalVelocity = 0;
         float horizontalVelocity = 0;
+        mousePos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
 
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT))
+        if (Gdx.input.isKeyPressed(Input.Keys.D))
         {
-            horizontalVelocity += (speed * delta);
+            horizontalVelocity += (heroSpeed * delta);
         }
 
-        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
-            horizontalVelocity += (-speed * delta);
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) {
+            horizontalVelocity += (-heroSpeed * delta);
         }
 
-        if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-            verticalVelocity += (speed * delta);
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) {
+            verticalVelocity += (heroSpeed * delta);
         }
 
-        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-            verticalVelocity += (-speed * delta);
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
+            verticalVelocity += (-heroSpeed * delta);
         }
 
-        heroSprite.translateX(horizontalVelocity);
-        heroSprite.translateY(verticalVelocity);
+        hero.positionX += horizontalVelocity;
+        hero.positionY += verticalVelocity;
+        hero.sprite.translateX(horizontalVelocity);
+        hero.sprite.translateY(verticalVelocity);
 
-        if (Gdx.input.isTouched())
+        if (Gdx.input.isTouched() && timerReload <= 0f)
         {
-            touchPos.set(Gdx.input.getX(), Gdx.input.getY());
-            viewport.unproject(touchPos);
-            spawnBullet();
+            viewport.unproject(mousePos);
+
+            switch(hero.weapon){
+                case pistol -> {
+                    timerReload = pistolReloadTime;
+                    spawnBullet();}
+                case shotgun -> {
+                    timerReload = shotgunReloadTime;
+                    spawnShotgunBullets();}
+                case machinegun -> {
+                    timerReload = machineGunReloadTime;
+                    spawnBullet();}
+            }
         }
     }
 
     public void logic(){
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
-        float playerWidth = heroSprite.getWidth();
-        float playerHeight = heroSprite.getHeight();
+        float playerWidth = hero.sprite.getWidth();
+        float playerHeight = hero.sprite.getHeight();
         gameWorld.set(0f, 0f,896f, 512f);
 
-        heroSprite.setX(MathUtils.clamp(heroSprite.getX(), 0, worldWidth - playerWidth));
-        heroSprite.setY(MathUtils.clamp(heroSprite.getY(), 0, worldHeight - playerHeight));
+        hero.sprite.setX(MathUtils.clamp(hero.sprite.getX(), 0, worldWidth - playerWidth));
+        hero.sprite.setY(MathUtils.clamp(hero.sprite.getY(), 0, worldHeight - playerHeight));
+        Vector2 direction = new Vector2(mousePos.x - hero.sprite.getX(), mousePos.y - hero.sprite.getY());
+        direction.nor();
+        gunSprite.setX(hero.sprite.getX() + direction.x * 20);
+        gunSprite.setY(hero.sprite.getY() + direction.y * 20);
 
         float delta = Gdx.graphics.getDeltaTime();
 
-        heroRectangle.set(heroSprite.getX(), heroSprite.getY(), playerWidth, playerHeight);
+        heroRectangle.set(hero.sprite.getX(), hero.sprite.getY(), playerWidth, playerHeight);
 
-        for (int i = bulletSprites.size - 1; i >= 0; i--) {
-            Sprite bulletSprite = bulletSprites.get(i);
-            float bulletWidth = bulletSprite.getWidth();
-            float bulletHeight = bulletSprite.getHeight();
 
-          //  bulletSprite.translateY(-2f * delta);
-            bulletRectangle.set(bulletSprite.getX(), bulletSprite.getY(), bulletWidth, bulletHeight);
+        //reload time logic
+        if (timerReload > 0f)
+        {
+            timerReload -= delta;
+        }
+
+        for (int i = bullets.size - 1; i >= 0; i--) {
+            Bullet bullet = bullets.get(i);
+            float bulletWidth = bullet.sprite.getWidth();
+            float bulletHeight = bullet.sprite.getHeight();
+
+            bullet.sprite.translate(bulletSpeed * bullet.direction.x * delta, bulletSpeed * bullet.direction.y * delta);
+            bullet.positionX = bullet.sprite.getX();
+            bullet.positionY = bullet.sprite.getY();
+            bulletRectangle.set(bullet.positionX, bullet.positionY, bulletWidth, bulletHeight);
 
 
 //            if (bulletSprite.getY() > gameWorld.getHeight() / 2) bulletSprites.removeIndex(i);
 //            else if (bulletSprite.getX() > gameWorld.getWidth() / 2) bulletSprites.removeIndex(i);
-            if(!bulletRectangle.overlaps(gameWorld)) bulletSprites.removeIndex(i);
+            if(!bulletRectangle.overlaps(gameWorld)) bullets.removeIndex(i);
             else if (bulletRectangle.overlaps(zombieRectangle)) {
-                bulletSprites.removeIndex(i);
+                bullets.removeIndex(i);
             }
         }
     }
@@ -173,14 +211,15 @@ public class Main implements ApplicationListener {
         float worldHeight = viewport.getWorldHeight();
 
         spriteBatch.draw(backgroundTexture, 0, 0, worldWidth, worldHeight);
-        heroSprite.draw(spriteBatch);
+        hero.sprite.draw(spriteBatch);
+        gunSprite.draw(spriteBatch);
 
         for (Sprite zombieSprite : zombieSprites) {
             zombieSprite.draw(spriteBatch);
         }
 
-        for (Sprite bulletSprite : bulletSprites) {
-            bulletSprite.draw(spriteBatch);
+        for (Bullet bullet : bullets) {
+            bullet.sprite.draw(spriteBatch);
         }
 
         spriteBatch.end();
@@ -202,8 +241,25 @@ public class Main implements ApplicationListener {
 
     private void spawnBullet()
     {
-        Vector2 direction = new Vector2(touchPos.x - heroSprite.getX(), touchPos.y - heroSprite.getY());
-        bullets.add(new Bullet(heroSprite.getX(), heroSprite.getY(), direction));
+        Vector2 direction = new Vector2(mousePos.x - hero.sprite.getX(), mousePos.y - hero.sprite.getY());
+        direction.nor();
+        bullets.add(new Bullet(hero.sprite.getX(), hero.sprite.getY(), direction, new Sprite(bulletTexture)));
+    }
+
+    private void spawnShotgunBullets()
+    {
+        Vector2 direction = new Vector2(mousePos.x - hero.sprite.getX(), mousePos.y - hero.sprite.getY());
+        Vector2 direction2 = new Vector2(mousePos.x - hero.sprite.getX(), mousePos.y - hero.sprite.getY());
+        direction2.rotateDeg(shotgunSpread);
+        direction2.nor();
+        Vector2 direction3 = new Vector2(mousePos.x - hero.sprite.getX(), mousePos.y - hero.sprite.getY());
+        direction3.rotateDeg(-shotgunSpread);
+        direction3.nor();
+
+        direction.nor();
+        bullets.add(new Bullet(hero.sprite.getX(), hero.sprite.getY(), direction, new Sprite(bulletTexture)));
+        bullets.add(new Bullet(hero.sprite.getX(), hero.sprite.getY(), direction2, new Sprite(bulletTexture)));
+        bullets.add(new Bullet(hero.sprite.getX(), hero.sprite.getY(), direction3, new Sprite(bulletTexture)));
     }
 
 
