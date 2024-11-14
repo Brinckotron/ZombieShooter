@@ -2,6 +2,7 @@ package com.Zombie.shooter;
 
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
@@ -22,14 +23,16 @@ public class Main implements ApplicationListener {
     Texture heroTexture;
     Texture zombieTexture;
     Texture bulletTexture;
+    Texture aimTexture;
     Texture tower;
-    Texture bullets;
+    Texture bullet;
     Sound gunSound;
     Sound zombieSound;
     Sound zombieDeathSound;
     Sound powerUp;
     Sound lose;
     Music music;
+    Array<Bullet> bullets;
 
     SpriteBatch spriteBatch;
     FitViewport viewport;
@@ -44,7 +47,9 @@ public class Main implements ApplicationListener {
     float zombieSpawnTimer;
 
     Rectangle heroRectangle;
-    Array<Rectangle> zombieRectangles;
+    Rectangle zombieRectangle;
+    Rectangle bulletRectangle;
+    Rectangle gameWorld;
 
     @Override
     public void create() {
@@ -52,6 +57,7 @@ public class Main implements ApplicationListener {
         heroTexture = new Texture("Hero.png");
         zombieTexture = new Texture("Zombie.png");
         bulletTexture = new Texture("Bullet.png");
+        aimTexture = new Texture("Reticle.png");
 
         //zombieSound = Gdx.audio.newSound(Gdx.files.internal("drop.mp3"));
         //music = Gdx.audio.newMusic(Gdx.files.internal("music.mp3"));
@@ -66,10 +72,11 @@ public class Main implements ApplicationListener {
 
         zombieSprites = new Array<>();
         bulletSprites = new Array<>();
+        bullets = new Array<>();
 
         heroRectangle = new Rectangle();
-        zombieRectangles = new Array<>();
-
+        //zombieRectangles = new Array<>();
+        gameWorld = new Rectangle();
         spawnZombie();
 
        /* music.setLooping(true);
@@ -84,7 +91,6 @@ public class Main implements ApplicationListener {
 
     @Override
     public void render() {
-        // Draw your application here.
         input();
         logic();
         draw();
@@ -92,11 +98,69 @@ public class Main implements ApplicationListener {
 
 
     public void input() {
+        float speed = 30f;
+        float delta = Gdx.graphics.getDeltaTime();
+        float verticalVelocity = 0;
+        float horizontalVelocity = 0;
 
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT))
+        {
+            horizontalVelocity += (speed * delta);
+        }
+
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+            horizontalVelocity += (-speed * delta);
+        }
+
+        if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
+            verticalVelocity += (speed * delta);
+        }
+
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
+            verticalVelocity += (-speed * delta);
+        }
+
+        heroSprite.translateX(horizontalVelocity);
+        heroSprite.translateY(verticalVelocity);
+
+        if (Gdx.input.isTouched())
+        {
+            touchPos.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(touchPos);
+            spawnBullet();
+        }
     }
 
     public void logic(){
+        float worldWidth = viewport.getWorldWidth();
+        float worldHeight = viewport.getWorldHeight();
+        float playerWidth = heroSprite.getWidth();
+        float playerHeight = heroSprite.getHeight();
+        gameWorld.set(0f, 0f,896f, 512f);
 
+        heroSprite.setX(MathUtils.clamp(heroSprite.getX(), 0, worldWidth - playerWidth));
+        heroSprite.setY(MathUtils.clamp(heroSprite.getY(), 0, worldHeight - playerHeight));
+
+        float delta = Gdx.graphics.getDeltaTime();
+
+        heroRectangle.set(heroSprite.getX(), heroSprite.getY(), playerWidth, playerHeight);
+
+        for (int i = bulletSprites.size - 1; i >= 0; i--) {
+            Sprite bulletSprite = bulletSprites.get(i);
+            float bulletWidth = bulletSprite.getWidth();
+            float bulletHeight = bulletSprite.getHeight();
+
+          //  bulletSprite.translateY(-2f * delta);
+            bulletRectangle.set(bulletSprite.getX(), bulletSprite.getY(), bulletWidth, bulletHeight);
+
+
+//            if (bulletSprite.getY() > gameWorld.getHeight() / 2) bulletSprites.removeIndex(i);
+//            else if (bulletSprite.getX() > gameWorld.getWidth() / 2) bulletSprites.removeIndex(i);
+            if(!bulletRectangle.overlaps(gameWorld)) bulletSprites.removeIndex(i);
+            else if (bulletRectangle.overlaps(zombieRectangle)) {
+                bulletSprites.removeIndex(i);
+            }
+        }
     }
 
     public void draw() {
@@ -134,6 +198,12 @@ public class Main implements ApplicationListener {
         zombieSprite.setX(MathUtils.random(0, 1) == 0? 0f: worldWidth - zombieWidth);
         zombieSprite.setY(MathUtils.random(0f, worldHeight - zombieHeight));
         zombieSprites.add(zombieSprite);
+    }
+
+    private void spawnBullet()
+    {
+        Vector2 direction = new Vector2(touchPos.x - heroSprite.getX(), touchPos.y - heroSprite.getY());
+        bullets.add(new Bullet(heroSprite.getX(), heroSprite.getY(), direction));
     }
 
 
