@@ -45,8 +45,8 @@ public class Main implements ApplicationListener {
     Array<Sprite> zombieSprites;
 
     float zombieSpawnTimer;
-    float bulletSpeed = 100f;
-    float heroSpeed = 50f;
+    float bulletSpeed = 150f;
+    float heroSpeed = 80f;
     int heroHealth = 100;
     float pistolReloadTime = 0.75f;
     float machineGunReloadTime = 0.25f;
@@ -161,18 +161,20 @@ public class Main implements ApplicationListener {
         float worldHeight = viewport.getWorldHeight();
         float playerWidth = hero.sprite.getWidth();
         float playerHeight = hero.sprite.getHeight();
+        Vector2 playerCenter = new Vector2(hero.positionX + playerWidth/2, hero.positionY + playerHeight/2);
         gameWorld.set(0f, 0f,896f, 512f);
 
         hero.sprite.setX(MathUtils.clamp(hero.sprite.getX(), 0, worldWidth - playerWidth));
         hero.sprite.setY(MathUtils.clamp(hero.sprite.getY(), 0, worldHeight - playerHeight));
-        Vector2 direction = new Vector2(mousePos.x - hero.sprite.getX(), mousePos.y - hero.sprite.getY());
+        hero.positionX = MathUtils.clamp(hero.sprite.getX(), 0, worldWidth - playerWidth);
+        hero.positionY= MathUtils.clamp(hero.sprite.getY(), 0, worldHeight - playerHeight);
+        Vector2 direction = new Vector2(mousePos.x - playerCenter.x, mousePos.y - playerCenter.y);
         direction.nor();
-        gunSprite.setX(hero.sprite.getX() + direction.x * 20);
-        gunSprite.setY(hero.sprite.getY() + direction.y * 20);
+        gunSprite.setCenter(playerCenter.x + direction.x * 20, playerCenter.y - direction.y * 20);
 
         float delta = Gdx.graphics.getDeltaTime();
 
-        heroRectangle.set(hero.sprite.getX(), hero.sprite.getY(), playerWidth, playerHeight);
+        heroRectangle.set(playerCenter.x, playerCenter.y, playerWidth, playerHeight);
 
 
         //reload time logic
@@ -241,25 +243,31 @@ public class Main implements ApplicationListener {
 
     private void spawnBullet()
     {
-        Vector2 direction = new Vector2(mousePos.x - hero.sprite.getX(), mousePos.y - hero.sprite.getY());
+        float playerWidth = hero.sprite.getWidth();
+        float playerHeight = hero.sprite.getHeight();
+        Vector2 playerCenter = new Vector2(hero.positionX + playerWidth/2, hero.positionY + playerHeight/2);
+        Vector2 direction = new Vector2(mousePos.x - playerCenter.x, mousePos.y - playerCenter.y);
         direction.nor();
-        bullets.add(new Bullet(hero.sprite.getX(), hero.sprite.getY(), direction, new Sprite(bulletTexture)));
+        bullets.add(new Bullet(playerCenter.x + direction.x * 20, playerCenter.y + direction.y * 20, direction, new Sprite(bulletTexture)));
     }
 
     private void spawnShotgunBullets()
     {
-        Vector2 direction = new Vector2(mousePos.x - hero.sprite.getX(), mousePos.y - hero.sprite.getY());
-        Vector2 direction2 = new Vector2(mousePos.x - hero.sprite.getX(), mousePos.y - hero.sprite.getY());
+        float playerWidth = hero.sprite.getWidth();
+        float playerHeight = hero.sprite.getHeight();
+        Vector2 playerCenter = new Vector2(hero.positionX + playerWidth/2, hero.positionY + playerHeight/2);
+        Vector2 direction = new Vector2(mousePos.x - hero.positionX, mousePos.y - hero.positionY);
+        Vector2 direction2 = new Vector2(mousePos.x - hero.positionX, mousePos.y - hero.positionY);
         direction2.rotateDeg(shotgunSpread);
         direction2.nor();
-        Vector2 direction3 = new Vector2(mousePos.x - hero.sprite.getX(), mousePos.y - hero.sprite.getY());
+        Vector2 direction3 = new Vector2(mousePos.x - hero.positionX, mousePos.y - hero.positionY);
         direction3.rotateDeg(-shotgunSpread);
         direction3.nor();
 
         direction.nor();
-        bullets.add(new Bullet(hero.sprite.getX(), hero.sprite.getY(), direction, new Sprite(bulletTexture)));
-        bullets.add(new Bullet(hero.sprite.getX(), hero.sprite.getY(), direction2, new Sprite(bulletTexture)));
-        bullets.add(new Bullet(hero.sprite.getX(), hero.sprite.getY(), direction3, new Sprite(bulletTexture)));
+        bullets.add(new Bullet(playerCenter.x + direction.x * 20, playerCenter.y + direction.y * 20, direction, new Sprite(bulletTexture)));
+        bullets.add(new Bullet(playerCenter.x + direction.x * 20, playerCenter.y + direction.y * 20, direction2, new Sprite(bulletTexture)));
+        bullets.add(new Bullet(playerCenter.x + direction.x * 20, playerCenter.y + direction.y * 20, direction3, new Sprite(bulletTexture)));
     }
 
 
