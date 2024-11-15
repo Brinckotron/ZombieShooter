@@ -20,6 +20,7 @@ public class Hero {
         this.positionX = posX;
         this.positionY = posY;
         this.sprite = spr;
+        this.sprite.setSize(25, 25);
         this.sprite.setCenter(posX, posY);
         this.speed = spd;
         this.health = hp;

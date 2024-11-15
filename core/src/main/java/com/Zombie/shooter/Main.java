@@ -115,7 +115,10 @@ public class Main implements ApplicationListener {
         float verticalVelocity = 0;
         float horizontalVelocity = 0;
         mousePos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(mousePos);
 
+
+        //movement
         if (Gdx.input.isKeyPressed(Input.Keys.D))
         {
             horizontalVelocity += (heroSpeed * delta);
@@ -138,9 +141,9 @@ public class Main implements ApplicationListener {
         hero.sprite.translateX(horizontalVelocity);
         hero.sprite.translateY(verticalVelocity);
 
+        // shooting gun
         if (Gdx.input.isTouched() && timerReload <= 0f)
         {
-            viewport.unproject(mousePos);
 
             switch(hero.weapon){
                 case pistol -> {
@@ -164,16 +167,20 @@ public class Main implements ApplicationListener {
         Vector2 playerCenter = new Vector2(hero.positionX + playerWidth/2, hero.positionY + playerHeight/2);
         gameWorld.set(0f, 0f,896f, 512f);
 
+        //clamp hero position
         hero.sprite.setX(MathUtils.clamp(hero.sprite.getX(), 0, worldWidth - playerWidth));
         hero.sprite.setY(MathUtils.clamp(hero.sprite.getY(), 0, worldHeight - playerHeight));
         hero.positionX = MathUtils.clamp(hero.sprite.getX(), 0, worldWidth - playerWidth);
         hero.positionY= MathUtils.clamp(hero.sprite.getY(), 0, worldHeight - playerHeight);
+
+        //gunsprite logic
         Vector2 direction = new Vector2(mousePos.x - playerCenter.x, mousePos.y - playerCenter.y);
         direction.nor();
-        gunSprite.setCenter(playerCenter.x + direction.x * 20, playerCenter.y - direction.y * 20);
+        gunSprite.setCenter(playerCenter.x + direction.x * 20, playerCenter.y + direction.y * 20);
 
         float delta = Gdx.graphics.getDeltaTime();
 
+        //hero hitbox
         heroRectangle.set(playerCenter.x, playerCenter.y, playerWidth, playerHeight);
 
 
