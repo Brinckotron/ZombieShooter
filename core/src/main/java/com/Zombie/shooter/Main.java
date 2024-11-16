@@ -24,7 +24,9 @@ public class Main implements ApplicationListener {
     Texture zombieTexture;
     Texture bulletTexture;
     Texture aimTexture;
-    Texture gunTexture;
+    Texture pistolTexture;
+    Texture shotgunTexture;
+    Texture machineGunTexture;
     Texture towerTexture;
     Sound gunSound;
     Sound zombieSound;
@@ -66,7 +68,9 @@ public class Main implements ApplicationListener {
         zombieTexture = new Texture("Zombie.png");
         bulletTexture = new Texture("Bullet.png");
         aimTexture = new Texture("Reticle.png");
-        gunTexture = new Texture("Gun.png");
+        pistolTexture = new Texture("Gun.png");
+        shotgunTexture = new Texture("Shotgun.png");
+        machineGunTexture = new Texture("MachineGun.png");
 
         //zombieSound = Gdx.audio.newSound(Gdx.files.internal("drop.mp3"));
         //music = Gdx.audio.newMusic(Gdx.files.internal("music.mp3"));
@@ -74,9 +78,9 @@ public class Main implements ApplicationListener {
         spriteBatch = new SpriteBatch();
         viewport = new FitViewport(896, 512);
 
-        hero = new Hero(viewport.getWorldWidth()/2, viewport.getWorldHeight()/2, new Sprite(heroTexture), heroHealth, heroSpeed, Hero.gunType.pistol );
+        hero = new Hero(viewport.getWorldWidth()/2, viewport.getWorldHeight()/2, new Sprite(heroTexture), heroHealth, heroSpeed, Hero.gunType.machinegun );
         hero.sprite.setSize(25, 25);
-        gunSprite = new Sprite(gunTexture);
+        gunSprite = new Sprite(pistolTexture);
 
 
         timerReload = 0f;
@@ -89,7 +93,7 @@ public class Main implements ApplicationListener {
         heroRectangle = new Rectangle();
         bulletRectangle = new Rectangle();
         zombieRectangle = new Rectangle();
-        gameWorld = new Rectangle();
+        gameWorld = new Rectangle(0f, 0f,896f, 512f);
         spawnZombie();
 
        /* music.setLooping(true);
@@ -160,29 +164,12 @@ public class Main implements ApplicationListener {
     }
 
     public void logic(){
+        float delta = Gdx.graphics.getDeltaTime();
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
         float playerWidth = hero.sprite.getWidth();
         float playerHeight = hero.sprite.getHeight();
         Vector2 playerCenter = new Vector2(hero.positionX + playerWidth/2, hero.positionY + playerHeight/2);
-        gameWorld.set(0f, 0f,896f, 512f);
-
-        //clamp hero position
-        hero.sprite.setX(MathUtils.clamp(hero.sprite.getX(), 0, worldWidth - playerWidth));
-        hero.sprite.setY(MathUtils.clamp(hero.sprite.getY(), 0, worldHeight - playerHeight));
-        hero.positionX = MathUtils.clamp(hero.sprite.getX(), 0, worldWidth - playerWidth);
-        hero.positionY= MathUtils.clamp(hero.sprite.getY(), 0, worldHeight - playerHeight);
-
-        //gunsprite logic
-        Vector2 direction = new Vector2(mousePos.x - playerCenter.x, mousePos.y - playerCenter.y);
-        direction.nor();
-        gunSprite.setCenter(playerCenter.x + direction.x * 20, playerCenter.y + direction.y * 20);
-
-        float delta = Gdx.graphics.getDeltaTime();
-
-        //hero hitbox
-        heroRectangle.set(playerCenter.x, playerCenter.y, playerWidth, playerHeight);
-
 
         //reload time logic
         if (timerReload > 0f)
@@ -190,6 +177,18 @@ public class Main implements ApplicationListener {
             timerReload -= delta;
         }
 
+        ClampHero(worldWidth, playerWidth, worldHeight, playerHeight);
+
+        //hero hitbox
+        heroRectangle.set(playerCenter.x, playerCenter.y, playerWidth, playerHeight);
+
+        SetSprite(playerCenter);
+
+        BulletLogic(delta);
+    }
+
+    private void BulletLogic(float delta) {
+        //bullet logic
         for (int i = bullets.size - 1; i >= 0; i--) {
             Bullet bullet = bullets.get(i);
             float bulletWidth = bullet.sprite.getWidth();
@@ -200,14 +199,32 @@ public class Main implements ApplicationListener {
             bullet.positionY = bullet.sprite.getY();
             bulletRectangle.set(bullet.positionX, bullet.positionY, bulletWidth, bulletHeight);
 
-
-//            if (bulletSprite.getY() > gameWorld.getHeight() / 2) bulletSprites.removeIndex(i);
-//            else if (bulletSprite.getX() > gameWorld.getWidth() / 2) bulletSprites.removeIndex(i);
             if(!bulletRectangle.overlaps(gameWorld)) bullets.removeIndex(i);
             else if (bulletRectangle.overlaps(zombieRectangle)) {
                 bullets.removeIndex(i);
             }
         }
+    }
+
+    private void SetSprite(Vector2 playerCenter) {
+        //gunsprite logic
+        Vector2 direction = new Vector2(mousePos.x - playerCenter.x, mousePos.y - playerCenter.y);
+        direction.nor();
+        gunSprite.setCenter(playerCenter.x + direction.x * 20, playerCenter.y + direction.y * 20);
+        switch (hero.weapon) {
+            case pistol -> gunSprite.setTexture(pistolTexture);
+            case shotgun -> gunSprite.setTexture(shotgunTexture);
+            case machinegun -> gunSprite.setTexture(machineGunTexture);
+        }
+        gunSprite.setScale(direction.x < 0 ? -1 : 1, 1);
+    }
+
+    private void ClampHero(float worldWidth, float playerWidth, float worldHeight, float playerHeight) {
+        //clamp hero position
+        hero.sprite.setX(MathUtils.clamp(hero.sprite.getX(), 0, worldWidth - playerWidth));
+        hero.sprite.setY(MathUtils.clamp(hero.sprite.getY(), 0, worldHeight - playerHeight));
+        hero.positionX = MathUtils.clamp(hero.sprite.getX(), 0, worldWidth - playerWidth);
+        hero.positionY= MathUtils.clamp(hero.sprite.getY(), 0, worldHeight - playerHeight);
     }
 
     public void draw() {
