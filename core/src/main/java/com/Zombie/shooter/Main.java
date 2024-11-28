@@ -203,8 +203,7 @@ public class Main implements ApplicationListener {
         showScores = true;
         username = usernameInput.getText();
 
-        //add database update and queries
-
+        UserManager.AddUserScore(username, score);
         stage.clear();
         stage.addActor(restart);
         for (int i = 0; i < 3; i++){

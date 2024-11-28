@@ -2,6 +2,7 @@ package com.Zombie.shooter;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 public class UserManager {
@@ -17,5 +18,21 @@ public class UserManager {
             e.printStackTrace();
         }
         return conn;
+    }
+
+    public static void AddUserScore(String username, int score){
+        try (Connection connection = getConnection()) {
+            String update = "INSERT INTO userscores(username, score) values(?, ?) ";
+            PreparedStatement statement = getConnection().prepareStatement(update);
+            statement.setString(1, username);
+            statement.setInt(2, score);
+            statement.execute();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+
+
     }
 }
