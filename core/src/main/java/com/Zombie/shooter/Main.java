@@ -13,6 +13,13 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -23,6 +30,20 @@ import java.util.logging.XMLFormatter;
  * {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms.
  */
 public class Main implements ApplicationListener {
+
+    boolean gameOver = false;
+    boolean showScores = false;
+
+    String username = "";
+
+    Stage stage;
+    Skin skin;
+
+    TextField usernameInput;
+    TextButton ok;
+    TextButton restart;
+    Label[] scores;
+    Label[] usernames;
 
     Texture backgroundTexture;
     Texture heroTexture;
@@ -78,9 +99,16 @@ public class Main implements ApplicationListener {
 
     @Override
     public void create() {
+
+        viewport = new FitViewport(896, 512);
+        stage = new Stage(viewport);
+        Gdx.input.setInputProcessor(stage);
+        skin = new Skin(Gdx.files.internal("ui/uiskin.json"));
         Pixmap aim = new Pixmap(Gdx.files.internal("Reticle.png"));
         Gdx.graphics.setCursor(Gdx.graphics.newCursor(aim, 8, 8));
         aim.dispose();
+        float middleWidth = viewport.getWorldWidth() / 2;
+        float middleHeight= viewport.getWorldHeight() / 2;
         backgroundTexture = new Texture("Background.png");
         heroTexture = new Texture("Hero.png");
         zombieTexture = new Texture("Zombie.png");
@@ -100,16 +128,15 @@ public class Main implements ApplicationListener {
 
         //zombieSound = Gdx.audio.newSound(Gdx.files.internal("drop.mp3"));
         music = Gdx.audio.newMusic(Gdx.files.internal("GoodDayToDie.mp3"));
-
         spriteBatch = new SpriteBatch();
-        viewport = new FitViewport(896, 512);
 
-        hero = new Hero(viewport.getWorldWidth() / 2, viewport.getWorldHeight() / 2, new Sprite(heroTexture), heroHealth, heroSpeed, Hero.gunType.shotgun);
+
+        hero = new Hero(middleWidth, middleHeight, new Sprite(heroTexture), heroHealth, heroSpeed, Hero.gunType.machinegun);
         hero.sprite.setSize(25, 25);
         gunSprite = new Sprite(pistolTexture);
         pauseSprite = new Sprite(gamePausedTexture);
         pauseSprite.setScale(5f, 2f);
-        pauseSprite.setCenter(viewport.getWorldWidth() / 2, viewport.getWorldHeight() / 2);
+        pauseSprite.setCenter(middleWidth, middleHeight);
 
 
         timerReload = 0f;
@@ -126,6 +153,64 @@ public class Main implements ApplicationListener {
         music.setLooping(true);
         music.setVolume(.1f);
         music.play();
+
+        ok = new TextButton("OK", skin);
+        ok.setSize(100, 50);
+        ok.setPosition(middleWidth - (ok.getWidth()/2), middleHeight - 25);
+        ok.addListener(new ClickListener() {
+            @Override public void clicked(InputEvent event, float x, float y) {
+                ShowScores();
+            }
+        });
+        restart = new TextButton("RESTART GAME", skin);
+        restart.setSize(100, 50);
+        restart.setPosition(middleWidth - (restart.getWidth()/2), middleHeight - 125);
+        restart.addListener(new ClickListener() {
+            @Override public void clicked(InputEvent event, float x, float y) {
+                RestartGame();
+            }
+        });
+
+        usernameInput = new TextField("Username", skin);
+        usernameInput.setPosition(middleWidth - (usernameInput.getWidth()/2), middleHeight + 75);
+        usernames = new Label[] {new Label("no user", skin), new Label("no user", skin), new Label("no user", skin)};
+        scores = new Label[] {new Label("0", skin), new Label("0", skin), new Label("0", skin)};
+        for (int i = 0; i < 3; i++) {
+            usernames[i].setSize(150, 50);
+            scores[i].setSize(50, 50);
+            usernames[i].setPosition((middleWidth - (usernames[i].getWidth()/2)) - 75, (middleHeight+100) - (i * 50));
+            scores[i].setPosition(middleWidth - (scores[i].getWidth()/2) + 125, (middleHeight+100) - (i * 50));
+        }
+        stage.addActor(usernameInput);
+        stage.addActor(ok);
+
+    }
+
+    public void RestartGame(){
+        score = 0;
+        username = "";
+        gameOver = false;
+        showScores = false;
+        music.dispose();
+        create();
+    }
+
+    public void GameOver() {
+        gameOver = true;
+    }
+
+    public void ShowScores () {
+        showScores = true;
+        username = usernameInput.getText();
+
+        //add database update and queries
+
+        stage.clear();
+        stage.addActor(restart);
+        for (int i = 0; i < 3; i++){
+            stage.addActor(usernames[i]);
+            stage.addActor(scores[i]);
+        }
     }
 
     @Override
@@ -136,7 +221,7 @@ public class Main implements ApplicationListener {
     @Override
     public void render() {
         input();
-        logic();
+        if (!gameOver) {logic();}
         draw();
     }
 
@@ -149,6 +234,10 @@ public class Main implements ApplicationListener {
         viewport.unproject(mousePos);
 
         PauseLogic(delta);
+
+        if (Gdx.input.isKeyPressed(Input.Keys.P)){
+            GameOver();
+        }
 
         //movement
         if (Gdx.input.isKeyPressed(Input.Keys.D) && !isPaused) {
@@ -167,13 +256,16 @@ public class Main implements ApplicationListener {
             verticalVelocity += (-heroSpeed * delta);
         }
 
-        hero.positionX += horizontalVelocity;
-        hero.positionY += verticalVelocity;
-        hero.sprite.translateX(horizontalVelocity);
-        hero.sprite.translateY(verticalVelocity);
+        if (!gameOver){
+            hero.positionX += horizontalVelocity;
+            hero.positionY += verticalVelocity;
+            hero.sprite.translateX(horizontalVelocity);
+            hero.sprite.translateY(verticalVelocity);
+        }
+
 
         // shooting gun
-        if (Gdx.input.isTouched() && timerReload <= 0f && !isPaused) {
+        if (Gdx.input.isTouched() && timerReload <= 0f && !isPaused && !gameOver) {
 
             switch (hero.weapon) {
                 case pistol -> {
@@ -195,7 +287,7 @@ public class Main implements ApplicationListener {
     private void PauseLogic(float delta) {
         //pause logic
         if (pauseTimer > 0) pauseTimer -= delta;
-        if (Gdx.input.isKeyPressed(Input.Keys.ESCAPE) && pauseTimer <= 0) {
+        if (Gdx.input.isKeyPressed(Input.Keys.ESCAPE) && pauseTimer <= 0 && !gameOver) {
             isPaused = !isPaused;
             pauseTimer = 0.5f;
             if (isPaused) {
@@ -359,6 +451,8 @@ public class Main implements ApplicationListener {
         scoreUnits.draw(spriteBatch);
         scoreDiz.draw(spriteBatch);
         scoreCent.draw(spriteBatch);
+
+        if (gameOver){ stage.draw();}
 
         if (isPaused) pauseSprite.draw(spriteBatch);
 
