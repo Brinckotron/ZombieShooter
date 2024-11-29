@@ -24,6 +24,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 
+import java.util.List;
 import java.util.logging.XMLFormatter;
 
 /**
@@ -204,11 +205,17 @@ public class Main implements ApplicationListener {
         username = usernameInput.getText();
 
         UserManager.AddUserScore(username, score);
+        List<String[]> dataScores = UserManager.DisplayUserScore();
+
         stage.clear();
         stage.addActor(restart);
         for (int i = 0; i < 3; i++){
+            usernames[i].setText(dataScores.get(i)[0]);
+            scores[i].setText(dataScores.get(i)[1]);
             stage.addActor(usernames[i]);
             stage.addActor(scores[i]);
+
+            i = (i + 1) % 3;
         }
     }
 
