@@ -11,7 +11,7 @@ public class UserManager {
         Connection conn = null;
         try {
 
-            conn = DriverManager.getConnection("jdbc:mysql://localhost:3307/zombie", "root", "");
+            conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/zombie", "root", "");
 
         } catch (SQLException e) {
             System.out.println("Connection failed! Check output console");
