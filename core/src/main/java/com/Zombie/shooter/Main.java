@@ -386,8 +386,7 @@ public class Main implements ApplicationListener {
             if (heroRectangle.overlaps(powerUpRectangle)){
                 switch (powerUp.powerUpType) {
                     case health: {
-                        hero.health += 2;
-                        MathUtils.clamp(hero.health, 0, 10);
+                        hero.health = MathUtils.clamp(hero.health + 2, 0, 10);
                         break;
                     }
                     case shotgun:{
