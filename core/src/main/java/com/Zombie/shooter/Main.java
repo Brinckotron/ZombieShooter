@@ -4,7 +4,6 @@ import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.audio.Music;
-import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
@@ -20,12 +19,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextField;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 
 import java.util.List;
-import java.util.logging.XMLFormatter;
 
 /**
  * {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms.
@@ -45,6 +44,7 @@ public class Main implements ApplicationListener {
     TextButton restart;
     Label[] scores;
     Label[] usernames;
+    Label HealthLabel;
 
     Texture backgroundTexture;
     Texture heroTexture;
@@ -53,19 +53,15 @@ public class Main implements ApplicationListener {
     Texture pistolTexture;
     Texture shotgunTexture;
     Texture machineGunTexture;
-    Texture towerTexture;
     Texture gamePausedTexture;
+    Texture heartTexture;
     Array<Texture> numbers;
-    Sound gunSound;
-    Sound zombieSound;
-    Sound zombieDeathSound;
-    Sound powerUp;
-    Sound lose;
     Music music;
     Array<Bullet> bullets;
     Sprite scoreUnits;
     Sprite scoreDiz;
     Sprite scoreCent;
+    Sprite heartSprite;
 
     boolean isPaused = false;
 
@@ -79,12 +75,12 @@ public class Main implements ApplicationListener {
     Sprite pauseSprite;
 
     Sprite gunSprite;
-    Array<Sprite> zombieSprites;
+    Array<Zombie> zombies;
 
     float zombieSpawnTimer = 0f;
     float bulletSpeed = 150f;
     float heroSpeed = 80f;
-    int heroHealth = 100;
+    int heroHealth = 10;
     float pistolReloadTime = 0.75f;
     float machineGunReloadTime = 0.25f;
     float shotgunReloadTime = 1f;
@@ -93,6 +89,7 @@ public class Main implements ApplicationListener {
     int score = 0;
     float zombieSpeed = 40f;
     float pauseTimer = 0f;
+    int zombiePushBack = 30;
 
     Rectangle heroRectangle;
     Rectangle zombieRectangle;
@@ -103,6 +100,7 @@ public class Main implements ApplicationListener {
 
         viewport = new FitViewport(896, 512);
         stage = new Stage(viewport);
+
         Gdx.input.setInputProcessor(stage);
         skin = new Skin(Gdx.files.internal("ui/uiskin.json"));
         Pixmap aim = new Pixmap(Gdx.files.internal("Reticle.png"));
@@ -118,6 +116,7 @@ public class Main implements ApplicationListener {
         shotgunTexture = new Texture("Shotgun.png");
         machineGunTexture = new Texture("MachineGun.png");
         gamePausedTexture = new Texture("GamePaused.png");
+        heartTexture = new Texture("Heart.png");
         numbers = new Array<Texture>();
         for (int i = 0; i < 10; i++) {
             numbers.add(new Texture(i + ".png"));
@@ -138,13 +137,16 @@ public class Main implements ApplicationListener {
         pauseSprite = new Sprite(gamePausedTexture);
         pauseSprite.setScale(5f, 2f);
         pauseSprite.setCenter(middleWidth, middleHeight);
+        heartSprite = new Sprite(heartTexture);
+        heartSprite.setScale(0.7f);
+        heartSprite.setCenter((viewport.getWorldWidth()/2) , 20);
 
 
         timerReload = 0f;
 
         mousePos = new Vector2();
 
-        zombieSprites = new Array<>();
+        zombies = new Array<>();
         bullets = new Array<>();
 
         heroRectangle = new Rectangle();
@@ -182,6 +184,10 @@ public class Main implements ApplicationListener {
             usernames[i].setPosition((middleWidth - (usernames[i].getWidth()/2)) - 75, (middleHeight+100) - (i * 50));
             scores[i].setPosition(middleWidth - (scores[i].getWidth()/2) + 125, (middleHeight+100) - (i * 50));
         }
+        HealthLabel = new Label("0", skin);
+        HealthLabel.setSize(50,50);
+        HealthLabel.setPosition(heartSprite.getX()+5, heartSprite.getY() + 10);
+        HealthLabel.setAlignment(Align.center);
         stage.addActor(usernameInput);
         stage.addActor(ok);
 
@@ -240,10 +246,6 @@ public class Main implements ApplicationListener {
         viewport.unproject(mousePos);
 
         PauseLogic(delta);
-
-        if (Gdx.input.isKeyPressed(Input.Keys.P)){
-            GameOver();
-        }
 
         //movement
         if (Gdx.input.isKeyPressed(Input.Keys.D) && !isPaused) {
@@ -312,6 +314,10 @@ public class Main implements ApplicationListener {
         float playerHeight = hero.sprite.getHeight();
         Vector2 playerCenter = new Vector2(hero.positionX + playerWidth / 2, hero.positionY + playerHeight / 2);
 
+
+        // show health logic
+        HealthLabel.setText(hero.health);
+
         //reload time logic
         if (timerReload > 0f && !isPaused) {
             timerReload -= delta;
@@ -321,8 +327,25 @@ public class Main implements ApplicationListener {
 
         //hero hitbox
         heroRectangle.set(playerCenter.x, playerCenter.y, playerWidth, playerHeight);
+        heroRectangle.setCenter(playerCenter.x, playerCenter.y);
 
         SetSprite(playerCenter);
+
+        //hero hit logic
+        for (Zombie zombie : zombies) {
+            zombie.knockBackTick(delta);
+            zombieRectangle.setCenter(zombie.positionX, zombie.positionY);
+            if (heroRectangle.overlaps(zombieRectangle) && zombie.knockBackTimer <= 0){
+                Vector2 direction = new Vector2(zombie.positionX - hero.positionX, zombie.positionY - hero.positionY);
+                direction.nor();
+                zombie.Knockback(direction, zombiePushBack);
+                hero.health -= 1;
+                if (hero.health ==0){
+                    GameOver();
+                }
+            }
+
+        }
 
         BulletLogic(delta);
 
@@ -353,19 +376,22 @@ public class Main implements ApplicationListener {
     }
 
     private void ZombieMoveLogic(Vector2 playerCenter, float delta) {
-        for (Sprite zombieSprite : zombieSprites) {
-            Vector2 zombieCenter = new Vector2(zombieSprite.getX() + zombieSprite.getWidth() / 2, zombieSprite.getY() + zombieSprite.getHeight() / 2);
-            Vector2 direction = new Vector2(playerCenter.x - zombieCenter.x, playerCenter.y - zombieCenter.y);
-            direction.nor();
+        for (Zombie zombie : zombies) {
+            if (zombie.knockBackTimer <= 0) {
 
-            zombieSprite.translate(zombieSpeed * direction.x * delta, zombieSpeed * direction.y * delta);
-            zombieSprite.setScale(direction.x < 0 ? -1 : 1, 1);
+                Vector2 direction = new Vector2(playerCenter.x - zombie.positionX, playerCenter.y - zombie.positionY);
+                direction.nor();
+                zombie.sprite.translate(zombieSpeed * direction.x * delta, zombieSpeed * direction.y * delta);
+                zombie.positionX = (zombie.sprite.getX() + (zombie.sprite.getWidth())/2) -5 ;
+                zombie.positionY = (zombie.sprite.getY() + (zombie.sprite.getHeight())/2) -5 ;
+                zombie.sprite.setScale(direction.x < 0 ? -1 : 1, 1);
+            }
         }
     }
 
     private void ZombieSpawnLogic(float delta) {
         zombieSpawnTimer -= delta;
-        if (zombieSprites.size > 50) {return;}
+        if (zombies.size > 50) {return;}
         if (zombieSpawnTimer <= 0f) {
             if (score < 20) {
                 spawnZombie();
@@ -402,13 +428,13 @@ public class Main implements ApplicationListener {
             bullet.rectangle.set(bullet.positionX, bullet.positionY, bulletWidth, bulletHeight);
 
             if (!bullet.rectangle.overlaps(gameWorld)) bullets.removeIndex(i);
-            for (int j = zombieSprites.size - 1; j >= 0; j--) {
-                Sprite zombieSprite = zombieSprites.get(j);
-                Vector2 zombieCenter = new Vector2(zombieSprite.getX(), zombieSprite.getY());
-                zombieRectangle.set(zombieCenter.x-5, zombieCenter.y, zombieSprite.getWidth(), zombieSprite.getHeight());
+            for (int j = zombies.size - 1; j >= 0; j--) {
+                Zombie zombie = zombies.get(j);
+                zombieRectangle.set(zombie.positionX, zombie.positionY, zombie.sprite.getWidth(), zombie.sprite.getHeight());
+                zombieRectangle.setCenter(zombie.positionX, zombie.positionY);
                 if (bullet.rectangle.overlaps(zombieRectangle)) {
                     bullets.removeIndex(i);
-                    zombieSprites.removeIndex(j);
+                    zombies.removeIndex(j);
                     score++;
                     if (score == 1000) {
                         score = 0;
@@ -457,13 +483,15 @@ public class Main implements ApplicationListener {
         scoreUnits.draw(spriteBatch);
         scoreDiz.draw(spriteBatch);
         scoreCent.draw(spriteBatch);
+        heartSprite.draw(spriteBatch);
+        HealthLabel.draw(spriteBatch, 1f);
 
         if (gameOver){ stage.draw();}
 
         if (isPaused) pauseSprite.draw(spriteBatch);
 
-        for (Sprite zombieSprite : zombieSprites) {
-            zombieSprite.draw(spriteBatch);
+        for (Zombie zombie : zombies) {
+            zombie.sprite.draw(spriteBatch);
         }
 
         for (Bullet bullet : bullets) {
@@ -480,10 +508,8 @@ public class Main implements ApplicationListener {
         float worldWidth = viewport.getWorldWidth();
         float worldHeight = viewport.getWorldHeight();
 
-        Sprite zombieSprite = new Sprite(zombieTexture);
-        zombieSprite.setSize(zombieWidth, zombieHeight);
-        zombieSprite.setCenter(MathUtils.random(0, 1) == 0 ? 0f : worldWidth - zombieWidth, MathUtils.random(0f, worldHeight - zombieHeight));
-        zombieSprites.add(zombieSprite);
+        Zombie zombie = new Zombie(MathUtils.random(0, 1) == 0 ? 0f : worldWidth - zombieWidth, MathUtils.random(0f, worldHeight - zombieHeight), new Sprite(zombieTexture));
+        zombies.add(zombie);
     }
 
     private void spawnBullet() {
