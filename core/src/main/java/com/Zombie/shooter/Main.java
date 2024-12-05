@@ -25,6 +25,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 
 import java.util.List;
+import java.util.Random;
 
 /**
  * {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms.
@@ -76,6 +77,8 @@ public class Main implements ApplicationListener {
 
     Sprite gunSprite;
     Array<Zombie> zombies;
+    Array<PowerUp> powerUps;
+    Rectangle powerUpRectangle;
 
     float zombieSpawnTimer = 0f;
     float bulletSpeed = 150f;
@@ -90,6 +93,8 @@ public class Main implements ApplicationListener {
     float zombieSpeed = 40f;
     float pauseTimer = 0f;
     int zombiePushBack = 30;
+    float speedBoostLength = 10;
+    float invTime = 1f;
 
     Rectangle heroRectangle;
     Rectangle zombieRectangle;
@@ -131,7 +136,7 @@ public class Main implements ApplicationListener {
         spriteBatch = new SpriteBatch();
 
 
-        hero = new Hero(middleWidth, middleHeight, new Sprite(heroTexture), heroHealth, heroSpeed, Hero.gunType.machinegun);
+        hero = new Hero(middleWidth, middleHeight, new Sprite(heroTexture), heroHealth, heroSpeed, Hero.gunType.pistol);
         hero.sprite.setSize(25, 25);
         gunSprite = new Sprite(pistolTexture);
         pauseSprite = new Sprite(gamePausedTexture);
@@ -148,10 +153,12 @@ public class Main implements ApplicationListener {
 
         zombies = new Array<>();
         bullets = new Array<>();
+        powerUps = new Array<>();
 
         heroRectangle = new Rectangle();
         zombieRectangle = new Rectangle();
         gameWorld = new Rectangle(0f, 0f, 896f, 512f);
+        powerUpRectangle = new Rectangle();
 
         music.setLooping(true);
         music.setVolume(.1f);
@@ -249,19 +256,19 @@ public class Main implements ApplicationListener {
 
         //movement
         if (Gdx.input.isKeyPressed(Input.Keys.D) && !isPaused) {
-            horizontalVelocity += (heroSpeed * delta);
+            horizontalVelocity += ((hero.speedTimer > 0? heroSpeed * 2: heroSpeed) * delta);
         }
 
         if (Gdx.input.isKeyPressed(Input.Keys.A) && !isPaused) {
-            horizontalVelocity += (-heroSpeed * delta);
+            horizontalVelocity += (-(hero.speedTimer > 0? heroSpeed * 2: heroSpeed) * delta);
         }
 
         if (Gdx.input.isKeyPressed(Input.Keys.W) && !isPaused) {
-            verticalVelocity += (heroSpeed * delta);
+            verticalVelocity += ((hero.speedTimer > 0? heroSpeed * 2: heroSpeed) * delta);
         }
 
         if (Gdx.input.isKeyPressed(Input.Keys.S) && !isPaused) {
-            verticalVelocity += (-heroSpeed * delta);
+            verticalVelocity += (-(hero.speedTimer > 0? heroSpeed * 2: heroSpeed) * delta);
         }
 
         if (!gameOver){
@@ -283,10 +290,14 @@ public class Main implements ApplicationListener {
                 case shotgun -> {
                     timerReload = shotgunReloadTime;
                     spawnShotgunBullets();
+                    hero.ammoCount--;
+                    if (hero.ammoCount <= 0) hero.weapon = Hero.gunType.pistol;
                 }
                 case machinegun -> {
                     timerReload = machineGunReloadTime;
                     spawnBullet();
+                    hero.ammoCount--;
+                    if (hero.ammoCount <= 0) hero.weapon = Hero.gunType.pistol;
                 }
             }
         }
@@ -323,6 +334,20 @@ public class Main implements ApplicationListener {
             timerReload -= delta;
         }
 
+        //invTime Logic
+        if (hero.invTimer > 0 && !isPaused) {
+            hero.invTimer -= delta;
+            hero.sprite.setColor(Color.RED);
+        }
+        else{
+            hero.sprite.setColor(Color.WHITE);
+        }
+
+        //speedBoost Timer Logic
+        if (hero.speedTimer > 0 && !isPaused) {
+            hero.speedTimer -= delta;
+        }
+
         ClampHero(worldWidth, playerWidth, worldHeight, playerHeight);
 
         //hero hitbox
@@ -331,21 +356,7 @@ public class Main implements ApplicationListener {
 
         SetSprite(playerCenter);
 
-        //hero hit logic
-        for (Zombie zombie : zombies) {
-            zombie.knockBackTick(delta);
-            zombieRectangle.setCenter(zombie.positionX, zombie.positionY);
-            if (heroRectangle.overlaps(zombieRectangle) && zombie.knockBackTimer <= 0){
-                Vector2 direction = new Vector2(zombie.positionX - hero.positionX, zombie.positionY - hero.positionY);
-                direction.nor();
-                zombie.Knockback(direction, zombiePushBack);
-                hero.health -= 1;
-                if (hero.health ==0){
-                    GameOver();
-                }
-            }
-
-        }
+        HeroHitLogic(delta);
 
         BulletLogic(delta);
 
@@ -355,6 +366,74 @@ public class Main implements ApplicationListener {
 
         ScoreLogic(worldWidth, worldHeight);
 
+        PowerUpsLogic(delta);
+
+
+    }
+
+    private void PowerUpsLogic(float delta) {
+        //PowerUps Logic
+        for (int i = 0; i < powerUps.size; i++) {
+            PowerUp powerUp = powerUps.get(i);
+            powerUp.PowerUpTick(delta);
+            if (powerUp.currentLifeSpan <=0) {
+                powerUps.removeIndex(i);
+                continue;
+            }
+
+            powerUpRectangle.set(powerUp.positionX, powerUp.positionY, powerUp.sprite.getWidth(), powerUp.sprite.getHeight());
+            powerUpRectangle.setCenter(powerUp.positionX, powerUp.positionY);
+            if (heroRectangle.overlaps(powerUpRectangle)){
+                switch (powerUp.powerUpType) {
+                    case health: {
+                        hero.health += 2;
+                        MathUtils.clamp(hero.health, 0, 10);
+                        break;
+                    }
+                    case shotgun:{
+                        hero.weapon = Hero.gunType.shotgun;
+                        hero.ammoCount = 20;
+                        break;
+                    }
+                    case machinegun:{
+                        hero.weapon = Hero.gunType.machinegun;
+                        hero.ammoCount = 30;
+                        break;
+                    }
+                    case bomb:{
+                        break;
+                    }
+                    case speed:{
+                        hero.speedTimer = speedBoostLength;
+                        break;
+                    }
+                    default:{
+                        break;
+                    }
+                }
+                powerUps.removeIndex(i);
+                return;
+            }
+        }
+    }
+
+    private void HeroHitLogic(float delta) {
+        //hero hit logic
+        for (Zombie zombie : zombies) {
+            zombie.knockBackTick(delta);
+            zombieRectangle.setCenter(zombie.positionX, zombie.positionY);
+            if (heroRectangle.overlaps(zombieRectangle) && zombie.knockBackTimer <= 0 && hero.invTimer <= 0){
+                Vector2 direction = new Vector2(zombie.positionX - hero.positionX, zombie.positionY - hero.positionY);
+                direction.nor();
+                zombie.Knockback(direction, zombiePushBack);
+                hero.health -= 1;
+                if (hero.health ==0){
+                    GameOver();
+                }
+                hero.invTimer = invTime;
+            }
+
+        }
     }
 
     private void ScoreLogic(float worldWidth, float worldHeight) {
@@ -433,8 +512,14 @@ public class Main implements ApplicationListener {
                 zombieRectangle.set(zombie.positionX, zombie.positionY, zombie.sprite.getWidth(), zombie.sprite.getHeight());
                 zombieRectangle.setCenter(zombie.positionX, zombie.positionY);
                 if (bullet.rectangle.overlaps(zombieRectangle)) {
+                    int random = new Random().nextInt(1,16);
+                    if (random == 1)
+                    {
+                        powerUps.add(new PowerUp(new Vector2(zombie.positionX, zombie.positionY)));
+                    }
                     bullets.removeIndex(i);
                     zombies.removeIndex(j);
+
                     score++;
                     if (score == 1000) {
                         score = 0;
@@ -492,6 +577,10 @@ public class Main implements ApplicationListener {
 
         for (Zombie zombie : zombies) {
             zombie.sprite.draw(spriteBatch);
+        }
+
+        for (PowerUp powerUp : powerUps) {
+            powerUp.sprite.draw(spriteBatch);
         }
 
         for (Bullet bullet : bullets) {

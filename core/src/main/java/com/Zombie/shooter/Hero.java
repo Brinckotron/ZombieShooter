@@ -13,7 +13,10 @@ public class Hero {
         machinegun,
         shotgun;
     }
+    public int ammoCount;
     public gunType weapon;
+    public float invTimer;
+    public float speedTimer;
 
     public Hero(float posX, float posY, Sprite spr, int hp, float spd, gunType gun)
     {
@@ -25,5 +28,8 @@ public class Hero {
         this.speed = spd;
         this.health = hp;
         this.weapon = gun;
+        this.ammoCount = 0;
+        this.invTimer = 0f;
+        this.speedTimer = 0f;
     }
 }
